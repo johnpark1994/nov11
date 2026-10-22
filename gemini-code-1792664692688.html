@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>민정 · 요한 패밀리 자산 대시보드</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .live-dot { animation: pulse-soft 2s infinite; }
+  </style>
+</head>
+<body class="min-h-screen pb-20">
+
+  <!-- 상단 고정 헤더 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-6xl mx-auto px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold text-sm shadow-sm">
+          민요
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">민정 · 요한 패밀리 자산 대시보드</h1>
+            <span class="inline-flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 live-dot"></span>
+              Google Finance · 시트 자동연동
+            </span>
+          </div>
+          <p id="syncStatusText" class="text-xs text-slate-500 mt-0.5">실시간 시세 및 구글 시트 자동 동기화 중...</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="fetchLiveSheetsData()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+          <svg id="syncIcon" class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          지금 동기화
+        </button>
+        <button onclick="openSheetModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition shadow-sm">
+          구글시트 바로가기
+        </button>
+        <!-- 스텔스 버튼 (힌트 전혀 없음) -->
+        <button id="lockBtn" onclick="handleLockClick()" class="p-2 rounded-xl text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 탭 네비게이션 -->
+    <div class="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto no-scrollbar border-t border-slate-100">
+      <button onclick="switchTab('overview')" id="tabBtn-overview" class="tab-btn px-4 py-3 text-sm font-extrabold whitespace-nowrap border-b-2 border-slate-900 text-slate-900 transition">
+        1. 자산 총괄 대시보드
+      </button>
+      <button onclick="switchTab('isa')" id="tabBtn-isa" class="tab-btn px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">
+        2. 부부 ISA & 매수계획
+      </button>
+      <button onclick="switchTab('ledger')" id="tabBtn-ledger" class="tab-btn px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">
+        3. 가계 수입지출
+      </button>
+      <button onclick="switchTab('loans')" id="tabBtn-loans" class="tab-btn px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">
+        4. 대출 관리
+      </button>
+      <button onclick="switchTab('admin')" id="tabBtn-admin" class="tab-btn hidden px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 border-transparent text-indigo-600 hover:text-indigo-800 transition">
+        5. 별도계좌
+      </button>
+    </div>
+  </header>
+
+  <!-- 메인 컨테이너 -->
+  <main class="max-w-6xl mx-auto px-4 pt-6 space-y-6">
+
+    <!-- ==========================================
+         TAB 1: 자산 총괄 대시보드
+    =========================================== -->
+    <section id="tab-overview" class="space-y-6">
+
+      <!-- [대폭 확대] 이달의 핵심 브리핑 & 보유자산 맞춤 매거진 (6대 카드) -->
+      <div class="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-xs font-extrabold">MONTHLY BRIEFING</span>
+            <h2 class="text-base font-extrabold text-slate-900">이달의 패밀리 자산 인사이트 & 시장 밀착 뉴스</h2>
+          </div>
+          <span id="briefingMonthLabel" class="text-xs font-semibold text-slate-400">기준: 2026.10 실시간 데이터 연동</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- 브리핑 1: 마이너스 통장 및 단기 부채 브리핑 -->
+          <div id="minusBriefCard" class="p-4 rounded-2xl border bg-amber-50/70 border-amber-200 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-extrabold text-slate-700">① 단기 레버리지 · 마통 점검</span>
+                <span id="minusBriefBadge" class="text-[11px] font-extrabold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full">
+                  상환 예정
+                </span>
+              </div>
+              <p id="minusBriefTitle" class="text-sm font-extrabold text-slate-900">
+                현재 마이너스 통장 잔액 ₩13,711,641
+              </p>
+              <p id="minusBriefDesc" class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                9월 하이닉스 10주 매도로 1,953만 원 축소 후, 10월 하이닉스 7주 추매(+860만)가 반영된 잔액입니다. 남산타운 임대보증금(1,000만) 입금 및 10월 상환예정분(100만)으로 즉시 상환 예정입니다.
+              </p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-amber-200/60 flex items-center justify-between text-[11px] font-bold text-slate-600">
+              <span>적용 금리: 4.6% (11월 5.1%)</span>
+              <button onclick="switchTab('loans')" class="text-blue-700 hover:underline">대출 탭에서 상환 체크 →</button>
+            </div>
+          </div>
+
+          <!-- 브리핑 2: 남산타운 리모델링 & 부동산 동향 -->
+          <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-extrabold text-blue-700">② 부동산 · 중구 남산타운 26평</span>
+                <span class="text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">시세 15.0억</span>
+              </div>
+              <p class="text-sm font-extrabold text-slate-900">
+                리모델링 조합설립 완료 및 도심권(CBD) 시세 견조
+              </p>
+              <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                2025.03 매수가(10.75억) 대비 <b>+4.25억(+39.5%)</b> 상승하여 순자산 증식의 핵심 버퍼 역할을 수행 중입니다. 리모델링 조합설립 이후 시공자 선정 및 안전진단 등 후속 절차가 진행되고 있습니다.
+              </p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span>임대 현황: 보증금 1천 / 월 150만 (26.10~27.12)</span>
+              <span class="text-emerald-600 font-bold">전월비 +1,000만</span>
+            </div>
+          </div>
+
+          <!-- 브리핑 3: SK하이닉스 HBM 뉴스 & 보유 비중 -->
+          <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-extrabold text-indigo-700">③ 핵심 주식 · SK하이닉스 (000660)</span>
+                <span id="briefHynixPriceBadge" class="text-[11px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">현재가 ₩1,294,000</span>
+              </div>
+              <p class="text-sm font-extrabold text-slate-900">
+                AI 서버용 HBM3E·HBM4 독점적 지위 & 부부 59주 보유
+              </p>
+              <p id="briefHynixDesc" class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                요한 25주 + 민정 34주(10월 7주 추매 포함)로 총 <b>59주(평가액 약 7,635만 원)</b>를 보유 중입니다. 글로벌 빅테크의 AI 인프라 설비투자(CapEx) 확대로 실적 모멘텀이 지속되고 있습니다.
+              </p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span>부부 합산 수익률: +19.1%</span>
+              <span class="text-indigo-600 font-bold">Google Finance 자동연동</span>
+            </div>
+          </div>
+
+          <!-- 브리핑 4: 미국 S&P 500 지수 & MDD 매수 타점 브리핑 -->
+          <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-extrabold text-emerald-700">④ 미국 증시 · S&P 500 & 매크로</span>
+                <span id="briefSp500Badge" class="text-[11px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">7,757.17 pt (-1.11%)</span>
+              </div>
+              <p class="text-sm font-extrabold text-slate-900">
+                S&P 500 신고가 권역 순항 · 1단계 조정(-10%) 대기 중
+              </p>
+              <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                민정 ISA 내 <b>TIGER 미국S&P500(802주)</b>을 기초 자산으로 적립 중입니다. 전고점(7,844.52pt) 대비 현재 -1.11% 구간으로, 1단계 현금 투입 타점(7,060.07pt)까지 여유가 있습니다.
+              </p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span>1단계(-10%) 타점: 7,060.07 pt</span>
+              <button onclick="switchTab('isa')" class="text-emerald-700 font-bold hover:underline">MDD 계획표 보기 →</button>
+            </div>
+          </div>
+
+          <!-- 브리핑 5: 당월 가계 수입·지출 현금흐름 브리핑 -->
+          <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-extrabold text-slate-700">⑤ 당월 가계부 현금흐름 요약</span>
+                <span id="briefLedgerBadge" class="text-[11px] font-bold text-slate-700 bg-slate-200 px-2 py-0.5 rounded-full">10월 가계부 기준</span>
+              </div>
+              <p id="briefLedgerTitle" class="text-sm font-extrabold text-slate-900">
+                출산·조리원 큰 지출 마무리 후 10월 흑자 전환 (+443만)
+              </p>
+              <p id="briefLedgerDesc" class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                8~9월 출산 준비·조리원·차량보험 등 일정을 무사히 마치고, 10월에는 남산타운 월세(150만)와 출산축하금(100만) 유입으로 안정적인 잉여 현금흐름을 회복했습니다.
+              </p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span>연금저축 40만 + 마통상환 100만 진행</span>
+              <button onclick="switchTab('ledger')" class="text-slate-800 font-bold hover:underline">가계부 상세 →</button>
+            </div>
+          </div>
+
+          <!-- 브리핑 6: 가족 라이프 이벤트 & 금리/대출 일정 -->
+          <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/70 flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-extrabold text-purple-700">⑥ 패밀리 스케줄 & 금융 캘린더</span>
+                <span class="text-[11px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full">토버 D+15</span>
+              </div>
+              <p class="text-sm font-extrabold text-slate-900">
+                2026.10.07 토버 출생 & 2027.12까지 창원 집중 저축기
+              </p>
+              <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                10~12월 출산휴가(유급) 이후 2027년 육아휴직 및 부모급여(월 100만)·아동수당(월 10만)이 개시됩니다. 요한 거치대출(6,000만)은 2027.07부터 10년 만기(월 62.2만)로 분납 시작됩니다.
+              </p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between text-[11px] font-semibold text-slate-500">
+              <span>주담대 수수료 면제: 2028.03</span>
+              <span class="text-purple-700 font-bold">15년 목표 순항중</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4대 핵심 KPI 카드 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <p class="text-xs font-bold text-slate-500">금융 · 현금성 자산 (연금 제외)</p>
+          <p id="kpiCashAssets" class="text-2xl font-extrabold text-slate-900 mt-1">₩106,157,209</p>
+          <p id="kpiCashDiff" class="text-xs font-semibold text-rose-600 mt-2">
+            전월대비 -₩19,889,395 (-15.78%)
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-blue-200 bg-blue-50/20 shadow-sm">
+          <p class="text-xs font-bold text-blue-700">현재 순자산 (Net Worth)</p>
+          <p id="kpiNetWorth" class="text-2xl font-extrabold text-blue-700 mt-1">₩767,962,075</p>
+          <p id="kpiNetWorthDiff" class="text-xs font-semibold text-rose-600 mt-2">
+            전월대비 -₩27,991,626 (-3.52%)
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <p class="text-xs font-bold text-slate-500">총 부채 (대출 합계)</p>
+          <p id="kpiTotalDebt" class="text-2xl font-extrabold text-rose-600 mt-1">₩852,208,666</p>
+          <p id="kpiDebtRatio" class="text-xs text-slate-500 mt-2">
+            부채비율 52.6%
+          </p>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+          <p class="text-xs font-bold text-slate-500">총 자산 (금융 + 부동산)</p>
+          <p id="kpiTotalAssets" class="text-2xl font-extrabold text-slate-900 mt-1">₩1,621,170,741</p>
+          <p id="kpiAssetMix" class="text-xs text-slate-500 mt-2">
+            금융자산 7.5% | 부동산 92.5%
+          </p>
+        </div>
+      </div>
+
+      <!-- [간추린 핵심 요약표] 월별 자산·부채 요약 기록표 -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">월별 자산 · 부채 핵심 요약표</h3>
+            <p class="text-xs text-slate-500 mt-0.5">세부 로데이터는 구글 시트에서 관리하고, 대시보드에서는 핵심 6대 지표 추이만 한눈에 확인합니다.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="toggleHistoryView()" id="historyToggleBtn" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+              전체 기간 보기 (25.06~)
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-right whitespace-nowrap">
+            <thead class="bg-slate-50 text-slate-600 text-xs border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold">기준월</th>
+                <th class="py-3 px-4 font-bold text-indigo-700">금융 현금성 (연금제외)</th>
+                <th class="py-3 px-4 font-semibold">연금자산</th>
+                <th class="py-3 px-4 font-semibold">부동산 (남산타운)</th>
+                <th class="py-3 px-4 font-bold">총자산</th>
+                <th class="py-3 px-4 font-bold text-rose-600">총부채</th>
+                <th class="py-3 px-4 font-extrabold text-slate-900 bg-slate-100/80">순자산 (Net Worth)</th>
+                <th class="py-3 px-4 font-bold">전월대비 증감</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody" class="divide-y divide-slate-100">
+              <!-- JS 자동 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 2: 부부 ISA & 매수계획 (현재가 100% 자동 연동)
+    =========================================== -->
+    <section id="tab-isa" class="hidden space-y-6">
+      <!-- GOOGLEFINANCE 자동 연동 상태 배너 (수동 입력 제거!) -->
+      <div class="bg-slate-900 text-white rounded-2xl p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 live-dot"></span>
+            <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">GOOGLEFINANCE AUTO-SYNC</span>
+          </div>
+          <h2 class="text-base sm:text-lg font-extrabold mt-1">부부 ISA 실시간 시세 자동 연동 포트폴리오</h2>
+          <p class="text-xs text-slate-300 mt-0.5">구글 시트의 실시간 현재가를 자동으로 받아와 평가금액과 수익률을 계산합니다.</p>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <div class="px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700">
+            <span class="text-[11px] text-slate-400 block">SK하이닉스 (000660)</span>
+            <span id="badgeHynixPrice" class="text-base font-extrabold text-white">₩1,294,000</span>
+          </div>
+          <div class="px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700">
+            <span class="text-[11px] text-slate-400 block">TIGER 미국S&P500</span>
+            <span id="badgeSp500EtfPrice" class="text-base font-extrabold text-white">₩25,285</span>
+          </div>
+          <div class="px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700">
+            <span class="text-[11px] text-slate-400 block">S&P 500 지수 (Live)</span>
+            <span id="badgeSp500Index" class="text-base font-extrabold text-emerald-400">7,757.17 pt</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 실시간 보유 종목 및 계좌 현황 -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">부부 ISA 보유 종목 현황</h3>
+            <p id="isaPortfolioSub" class="text-xs text-slate-500 mt-0.5">가족 합산 평가액: ₩96,292,121</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-right whitespace-nowrap">
+            <thead class="bg-slate-50 text-slate-600 text-xs border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold">계좌</th>
+                <th class="py-3 px-4 text-left font-bold">종목 (보유수량)</th>
+                <th class="py-3 px-4 font-bold">매수평단</th>
+                <th class="py-3 px-4 font-bold">실시간 현재가</th>
+                <th class="py-3 px-4 font-bold">평가금액</th>
+                <th class="py-3 px-4 font-bold">평가손익</th>
+                <th class="py-3 px-4 font-bold">수익률</th>
+              </tr>
+            </thead>
+            <tbody id="isaHoldingsBody" class="divide-y divide-slate-100">
+              <!-- JS 자동 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 시트 4: S&P 500 전고점 대비 MDD 분할 매수 계획 -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="text-base font-extrabold text-slate-900">S&P 500 전고점 대비 MDD 분할 매수 및 운용 계획</h3>
+            <p id="mddHeaderSub" class="text-xs text-slate-500 mt-0.5">전고점(ATH): 7,844.52 pt | 현재 지수: 7,757.17 pt | 현재 하락률(MDD): -1.11%</p>
+          </div>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-right whitespace-nowrap">
+            <thead class="bg-slate-50 text-slate-600 text-xs border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold">단계</th>
+                <th class="py-3 px-4 font-bold">하락률 (MDD)</th>
+                <th class="py-3 px-4 font-bold">목표 매수 지수 (pt)</th>
+                <th class="py-3 px-4 font-bold">도달 여부 (현재가 대비)</th>
+                <th class="py-3 px-4 font-bold">단계별 투입액</th>
+                <th class="py-3 px-4 text-left font-bold">매수 집행 원칙 및 세부 가이드</th>
+              </tr>
+            </thead>
+            <tbody id="mddPlanBody" class="divide-y divide-slate-100">
+              <!-- JS 자동 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 시트 2 하단: 월별 ISA 운용 요약 -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200">
+          <h3 class="text-base font-extrabold text-slate-900">2026년 월별 ISA 투자 운용 내역 (26.01 ~ 26.10)</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-right whitespace-nowrap">
+            <thead class="bg-slate-50 text-slate-600 border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold">기준월</th>
+                <th class="py-3 px-4 font-bold">월 투입금</th>
+                <th class="py-3 px-4 font-bold">누적 원금 (A)</th>
+                <th class="py-3 px-4 font-bold">가족 합산 평가액 (B)</th>
+                <th class="py-3 px-4 font-bold">순수익금 (B-A)</th>
+                <th class="py-3 px-4 font-bold">누적 수익률</th>
+                <th class="py-3 px-4 font-bold">S&P 500 가상 평가액</th>
+                <th class="py-3 px-4 font-bold">요한 평가액</th>
+                <th class="py-3 px-4 font-bold">민정 평가액</th>
+              </tr>
+            </thead>
+            <tbody id="isaHistoryBody" class="divide-y divide-slate-100">
+              <!-- JS 자동 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 3: 가계 수입지출 (동적 월 자동 감지 엔진)
+    =========================================== -->
+    <section id="tab-ledger" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-extrabold text-slate-900">가계 수입지출 결산</h2>
+              <span class="text-[11px] font-bold px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
+                신규 월(11월·12월~) 시트 추가 시 자동 생성
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">구글 시트(A.2026 민요 수입지출)에 새 월간 탭을 추가하면 아래 버튼과 결산표에 자동으로 반영됩니다.</p>
+          </div>
+          <!-- 월 선택 버튼 컨테이너 (동적 렌더링) -->
+          <div id="ledgerMonthButtons" class="flex flex-wrap gap-1.5">
+            <!-- JS에서 8월, 9월, 10월, (11월 자동감지 시 추가) 버튼 생성 -->
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-right whitespace-nowrap">
+            <thead class="bg-slate-50 text-slate-600 text-xs border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold">구분 (가계부 기간)</th>
+                <th class="py-3 px-4 font-bold">총 수입</th>
+                <th class="py-3 px-4 font-bold">총 지출</th>
+                <th class="py-3 px-4 font-bold">고정 지출</th>
+                <th class="py-3 px-4 font-bold">변동 지출</th>
+                <th class="py-3 px-4 font-bold">저축 / 투자</th>
+                <th class="py-3 px-4 font-bold">최종 잔액</th>
+                <th class="py-3 px-4 font-bold">대출 DSR</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerSummaryBody" class="divide-y divide-slate-100">
+              <!-- JS 자동 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 선택 월 상세 내역 3단 카드 -->
+      <div id="ledgerDetailGrid" class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- JS 자동 렌더링 -->
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 4: 대출 관리
+    =========================================== -->
+    <section id="tab-loans" class="hidden space-y-6">
+      <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="text-base font-extrabold text-slate-900">부채 현황 및 실시간 상환 관리</h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            마이너스 통장 등 대출의 <b>[상환 완료 처리]</b>를 누르거나 시트에서 잔액이 0원이 되면 대시보드 전체에 자동 반영됩니다.
+          </p>
+        </div>
+        <div class="text-right">
+          <span class="text-xs font-bold text-slate-500 block">현재 총 대출 잔액</span>
+          <span id="loanTabTotalDebt" class="text-2xl font-extrabold text-rose-600">₩852,208,666</span>
+        </div>
+      </div>
+
+      <div id="loansGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- JS 자동 렌더링 -->
+      </div>
+    </section>
+
+    <!-- ==========================================
+         TAB 5: 별도계좌 (알파벳·록히드마틴·환율 실시간 자동 연동)
+    =========================================== -->
+    <section id="tab-admin" class="hidden space-y-6">
+      <div class="bg-slate-900 text-white rounded-2xl p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 live-dot"></span>
+              <span class="text-xs font-bold text-emerald-400">시트 3 연동 · 미국주식 현재가 & 환율 실시간 반영</span>
+            </div>
+            <h2 class="text-lg font-extrabold mt-1">별도계좌 자산 및 실시간 포트폴리오</h2>
+            <p id="adminCombinedNetWorth" class="text-xs text-slate-300 mt-1">
+              별도계좌 포함 부부 실질 순자산: ₩804,644,118
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-6">
+            <div>
+              <span class="text-xs text-slate-400 block">실시간 총 평가액</span>
+              <span id="adminTotalVal" class="text-xl font-extrabold text-white">₩36,682,043</span>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 block">누적 원금</span>
+              <span id="adminPrincipal" class="text-xl font-extrabold text-slate-200">₩36,466,000</span>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 block">순수익금 (수익률)</span>
+              <span id="adminProfit" class="text-xl font-extrabold text-emerald-400">+₩216,043 (+0.6%)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 알파벳 · 록히드마틴 · 환율 실시간 시세 뱃지 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800">
+          <div class="px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center justify-between">
+            <span class="text-xs text-slate-400">알파벳 A (GOOGL) 현재가</span>
+            <span id="badgeGooglPrice" class="text-sm font-extrabold text-white">$334.76</span>
+          </div>
+          <div class="px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center justify-between">
+            <span class="text-xs text-slate-400">록히드 마틴 (LMT) 현재가</span>
+            <span id="badgeLmtPrice" class="text-sm font-extrabold text-white">$551.51</span>
+          </div>
+          <div class="px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 flex items-center justify-between">
+            <span class="text-xs text-slate-400">실시간 환율 (USD/KRW)</span>
+            <span id="badgeFxRate" class="text-sm font-extrabold text-emerald-400">₩1,328.03</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 class="text-base font-extrabold text-slate-900">별도계좌 실시간 보유 종목</h3>
+          <span class="text-xs text-slate-400">시트 3 (별도계좌) GOOGLEFINANCE 자동 연동</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-right whitespace-nowrap">
+            <thead class="bg-slate-50 text-slate-600 text-xs border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4 text-left font-bold">종목 (보유수량)</th>
+                <th class="py-3 px-4 font-bold">매수평단 (USD)</th>
+                <th class="py-3 px-4 font-bold">실시간 현재가 (USD)</th>
+                <th class="py-3 px-4 font-bold">평가금액 (USD)</th>
+                <th class="py-3 px-4 font-bold">원화 평가액 (KRW)</th>
+                <th class="py-3 px-4 font-bold">평가손익 (원)</th>
+                <th class="py-3 px-4 font-bold">수익률</th>
+              </tr>
+            </thead>
+            <tbody id="adminHoldingsBody" class="divide-y divide-slate-100">
+              <!-- JS 자동 렌더링 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 구글 시트 바로가기 & 자동 연동 안내 모달 -->
+  <div id="sheetModal" class="fixed inset-0 bg-slate-900/50 z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
+      <h3 class="text-base font-extrabold text-slate-900">연동된 구글 스프레드시트 바로가기</h3>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        아래 두 구글 시트에서 <b>[파일] → [공유] → [웹에 게시]</b>를 켜두시면, 시트의 실시간 주가(하이닉스·S&P500·알파벳·록히드마틴)와 매월 새로 추가되는 가계부 탭(11월, 12월~)을 이 웹사이트가 자동으로 읽어옵니다.
+      </p>
+      <div class="space-y-2.5 text-xs">
+        <a href="https://docs.google.com/spreadsheets/d/1hKeeMr5JLbBA-PkAGLG2m_pyOS5JE8ZzTnUjbroH-t0/edit" target="_blank"
+          class="p-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between transition">
+          <div>
+            <span class="font-extrabold text-slate-900 block">1. A. 민요 자산 ver 2.0 열기 ↗</span>
+            <span class="text-slate-500">가족 자산현황 · 부부 ISA · 별도계좌 · S&P500 매수원칙</span>
+          </div>
+          <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">자동연동</span>
+        </a>
+        <a href="https://docs.google.com/spreadsheets/d/1gZyk-mkecg9XvcxXG-jq3XqcGfzeAc4aBK3zyheljpc/edit" target="_blank"
+          class="p-3.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 flex items-center justify-between transition">
+          <div>
+            <span class="font-extrabold text-slate-900 block">2. A.2026 민요 수입지출 열기 ↗</span>
+            <span class="text-slate-500">8월 · 9월 · 10월 ~ 향후 11월/12월 가계부 자동 감지</span>
+          </div>
+          <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold">자동연동</span>
+        </a>
+      </div>
+      <div class="flex justify-end pt-2">
+        <button onclick="closeSheetModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Passcode 모달 (힌트 전혀 없음) -->
+  <div id="authModal" class="fixed inset-0 bg-slate-900/40 z-50 hidden items-center justify-center p-4">
+    <form onsubmit="submitAuth(event)" class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-xl">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-extrabold text-slate-900">Passcode</span>
+        <button type="button" onclick="closeAuthModal()" class="text-xs text-slate-400 hover:text-slate-600">닫기</button>
+      </div>
+      <input id="authInput" type="password" autocomplete="off"
+        class="w-full px-3 py-2 border border-slate-300 rounded-xl text-center font-extrabold tracking-widest text-base focus:outline-none focus:ring-2 focus:ring-slate-900" />
+      <button type="submit" class="w-full py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold">확인</button>
+    </form>
+  </div>
+
+  <script>
+    // 구글 시트 ID 상수
+    const ASSET_SHEET_ID = '1hKeeMr5JLbBA-PkAGLG2m_pyOS5JE8ZzTnUjbroH-t0';
+    const LEDGER_SHEET_ID = '1gZyk-mkecg9XvcxXG-jq3XqcGfzeAc4aBK3zyheljpc';
+
+    const krw = (n) => '₩' + Math.round(Number(n) || 0).toLocaleString('ko-KR');
+    const usd = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    // 실시간 시장 가격 상태 (구글 시트 GOOGLEFINANCE 셀에서 자동 업데이트)
+    const liveMarket = {
+      hynixPrice: 1294000,
+      sp500EtfPrice: 25285,
+      sp500Ath: 7844.52,
+      sp500Index: 7757.17,
+      googlPrice: 334.76,
+      lmtPrice: 551.51,
+      fxRate: 1328.03
+    };
+
+    // 별도계좌 보유 수량 및 평단 (시트 3 연동)
+    const adminPortfolio = {
+      principal: 36466000,
+      googlQty: 43,
+      googlAvg: 331.39,
+      lmtQty: 16,
+      lmtAvg: 526.61,
+      usdCash: 2439.78,
+      swingUsd: 1671.65,
+      swingKrwFixed: 2220000
+    };
+
+    // 시트 1: 월별 요약 히스토리 (25.06 ~ 26.09)
+    const SHEET1_HISTORY = [
+      { month: '25.06', cashTotal: 10616749, pension: 2950000, realEstate: 1075000000, totalAssets: 1088566749, totalDebt: 859404770, netWorth: 229161979 },
+      { month: '25.07', cashTotal: 11011413, pension: 2950000, realEstate: 1150000000, totalAssets: 1163961413, totalDebt: 858609540, netWorth: 305351873 },
+      { month: '25.08', cashTotal: 17948970, pension: 3897105, realEstate: 1150000000, totalAssets: 1171846075, totalDebt: 849899922, netWorth: 321946153 },
+      { month: '25.09', cashTotal: 96958418, pension: 4095715, realEstate: 1255000000, totalAssets: 1356054133, totalDebt: 851874881, netWorth: 504179252 },
+      { month: '25.10', cashTotal: 103528340, pension: 5292102, realEstate: 1275000000, totalAssets: 1383820442, totalDebt: 850557689, netWorth: 533262753 },
+      { month: '25.11', cashTotal: 76381477, pension: 6112785, realEstate: 1325000000, totalAssets: 1407494262, totalDebt: 849562820, netWorth: 557931442 },
+      { month: '25.12', cashTotal: 76209293, pension: 11095297, realEstate: 1375000000, totalAssets: 1462304590, totalDebt: 849235528, netWorth: 613069062 },
+      { month: '26.01', cashTotal: 92304979, pension: 11286865, realEstate: 1400000000, totalAssets: 1503591844, totalDebt: 848044838, netWorth: 655547006 },
+      { month: '26.02', cashTotal: 105792663, pension: 11584790, realEstate: 1425000000, totalAssets: 1542377453, totalDebt: 847070349, netWorth: 695307104 },
+      { month: '26.03', cashTotal: 109926846, pension: 12064075, realEstate: 1450000000, totalAssets: 1571990921, totalDebt: 846094548, netWorth: 725896373 },
+      { month: '26.04', cashTotal: 122463609, pension: 13042312, realEstate: 1450000000, totalAssets: 1585505921, totalDebt: 845178844, netWorth: 740327077 },
+      { month: '26.05', cashTotal: 145725974, pension: 14372106, realEstate: 1475000000, totalAssets: 1635098080, totalDebt: 858164412, netWorth: 776933668 },
+      { month: '26.06', cashTotal: 202984540, pension: 14887041, realEstate: 1490000000, totalAssets: 1707871581, totalDebt: 857245988, netWorth: 850625593 },
+      { month: '26.07', cashTotal: 146568092, pension: 15013196, realEstate: 1490000000, totalAssets: 1651581288, totalDebt: 854228971, netWorth: 797352317 },
+      { month: '26.08', cashTotal: 140349400, pension: 15149328, realEstate: 1490000000, totalAssets: 1645498728, totalDebt: 860583275, netWorth: 784915453 },
+      { month: '26.09', cashTotal: 126046604, pension: 15295922, realEstate: 1500000000, totalAssets: 1641342526, totalDebt: 845388825, netWorth: 795953701 }
+    ];
+
+    // 시트 2: 월별 ISA 투자 내역
+    const SHEET2_ISA = [
+      { month: '26.01', input: 3000000, principal: 44176168, val: 62798650, profit: 18622482, rate: 42.1, sp500: 44176168, yohan: 32062000, minjung: 30736650 },
+      { month: '26.02', input: 4000000, principal: 48176168, val: 86265434, profit: 38089266, rate: 79.1, sp500: 47979233, yohan: 41938399, minjung: 44327035 },
+      { month: '26.03', input: 1000000, principal: 49176168, val: 88355714, profit: 39179546, rate: 79.7, sp500: 48549530, yohan: 42671441, minjung: 45684273 },
+      { month: '26.04', input: 0, principal: 49176168, val: 102332396, profit: 53156228, rate: 108.1, sp500: 52169067, yohan: 48978701, minjung: 53353695 },
+      { month: '26.05', input: 5000000, principal: 54176168, val: 141838353, profit: 87662185, rate: 161.8, sp500: 61436720, yohan: 78600123, minjung: 63238230 },
+      { month: '26.06', input: -3000000, principal: 51176168, val: 186673344, profit: 135497176, rate: 264.8, sp500: 59174829, yohan: 97097900, minjung: 89575444 },
+      { month: '26.07', input: 2000000, principal: 53176168, val: 128335977, profit: 75159809, rate: 141.3, sp500: 56846223, yohan: 66415934, minjung: 61920043 },
+      { month: '26.08', input: 3000000, principal: 56176168, val: 130243584, profit: 74067416, rate: 131.8, sp500: 58957499, yohan: 62530934, minjung: 67712650 },
+      { month: '26.09', input: -19530000, principal: 36646168, val: 115653800, profit: 79007632, rate: 215.6, sp500: 38739323, yohan: 43980000, minjung: 71673800 },
+      { month: '26.10', input: 8596000, principal: 45242168, val: 96404401, profit: 51162233, rate: 113.1, sp500: 46735295, yohan: 32221551, minjung: 64182850 }
+    ];
+
+    // 가계 수입지출 데이터 (8월~10월 기본 + 11월/12월 시트 감지 시 자동 추가)
+    const LEDGER_DATA = {
+      '8월': {
+        period: '8월 (2026.08.21 ~ 09.20)',
+        income: 10165094, expense: 12379100, fixed: 5552120, variable: 6826980, invest: 3400000, balance: -5614006, dsr: '37.9%',
+        incomes: [['월급 (요한)', 4249274], ['월급 (민정)', 3415820], ['부수입 (장모님 용돈)', 2000000], ['부수입 (엄마 용돈)', 500000]],
+        investments: [['연금저축', 400000], ['ISA/주식 (하이닉스)', 3000000]],
+        fixedList: [
+          ['주담대이자', 3600000], ['요한회사대출', 250000], ['관리비', 250000], ['요한 보험', 146530],
+          ['민정 보험', 88800], ['토버 보험', 96360], ['통신비 (2건)', 125930], ['구독 (유튜브·제미나이)', 44500],
+          ['주유비', 150000], ['개인생활비', 800000]
+        ],
+        variableList: [
+          ['육아', 2112940, '30.9%'], ['교통', 1936640, '28.4%'], ['경조사비', 1011400, '14.8%'],
+          ['기타 (재산세 등)', 750910, '11.0%'], ['식비', 378870, '5.5%'], ['운동', 280000, '4.1%'],
+          ['의료', 142800, '2.1%'], ['생활용품', 131420, '1.9%'], ['카페/간식', 82000, '1.2%']
+        ]
+      },
+      '9월': {
+        period: '9월 (2026.09.21 ~ 10.20)',
+        income: 11307100, expense: 11796670, fixed: 5816100, variable: 5980570, invest: 1600000, balance: -2089570, dsr: '39.5%',
+        incomes: [['월급 (요한)', 6594100], ['월급 (민정)', 2813000], ['부수입 (동기모임 출산격려)', 600000], ['용돈 (엄마·이모·할머니)', 1300000]],
+        investments: [['연금저축', 400000], ['마이너스 통장 상환', 1200000]],
+        fixedList: [
+          ['주담대이자', 3550000], ['민정회사대출', 663980], ['요한회사대출', 250000], ['관리비', 250000],
+          ['요한 보험', 146530], ['민정 보험', 88800], ['토버 보험', 96360], ['통신비 (2건)', 125930],
+          ['구독 (유튜브·제미나이)', 44500], ['개인생활비', 600000]
+        ],
+        variableList: [
+          ['식비 (조리원 등 포함)', 2307250, '38.6%'], ['경조사비 (추석선물 등)', 1596090, '26.7%'],
+          ['카페/간식 (병원입원비 포함)', 1101750, '18.4%'], ['육아', 489900, '8.2%'],
+          ['교통', 170000, '2.8%'], ['의료', 115500, '1.9%'], ['생활용품', 100130, '1.7%']
+        ]
+      },
+      '10월': {
+        period: '10월 (2026.10.21 ~ 11.20)',
+        income: 11247054, expense: 5416620, fixed: 5202120, variable: 214500, invest: 1400000, balance: 4430434, dsr: '34.2%',
+        incomes: [['월급 (요한)', 3940814], ['월급 (민정)', 4806240], ['축하상여 (민정)', 1000000], ['남타 월세 (예정)', 1500000]],
+        investments: [['연금저축', 400000], ['마이너스 통장 줄이기 (예정)', 1000000]],
+        fixedList: [
+          ['주담대이자', 3600000], ['요한회사대출', 250000], ['관리비', 250000], ['요한 보험', 146530],
+          ['민정 보험', 88800], ['토버 보험', 96360], ['통신비 (2건)', 125930], ['구독 (유튜브·제미나이)', 44500],
+          ['개인생활비', 600000]
+        ],
+        variableList: [
+          ['육아 (하기스·분유·분유포트·쿠팡)', 202700, '91.6%'], ['식비 (서브웨이)', 18700, '8.4%']
+        ]
+      }
+    };
+
+    let currentLedgerKey = '10월';
+    let showAllHistory = false; // 기본은 최근 6개월 간추려 보기
+    let isAdminUnlocked = false;
+
+    const loansState = [
+      { id: 'mortgage', title: '주담대 (남산타운)', balance: 738615935, rate: '5.3%', monthly: 3550000, memo: '50년 만기 · 3년 후(2028.03) 수수료 면제', paidOff: false },
+      { id: 'debt2', title: '부채2 (민정 회사대출)', balance: 39881090, rate: '2.0%', monthly: 663980, memo: '급여 선공제 (원금 월 595,230원 감소)', paidOff: false },
+      { id: 'debt3', title: '부채3 (요한 회사대출)', balance: 60000000, rate: '4.5%', monthly: 250000, memo: '10년 만기 · 2027.07부터 원리금(월 62.2만) 상환', paidOff: false },
+      { id: 'minus', title: '부채4 (마이너스 통장)', balance: 13711641, rate: '4.6% (11월 5.1%)', monthly: 52500, memo: '보증금 1,000만 원 입금 시 상환 예정', paidOff: false }
+    ];
+
+    // 구글 시트 JSONP 로더 (CORS 없이 로컬 HTML에서도 실시간 시트 데이터를 읽어오는 엔진)
+    function loadGoogleSheetTab(sheetId, sheetName) {
+      return new Promise((resolve, reject) => {
+        const cbName = 'gvizCb_' + Math.random().toString(36).substring(2, 9);
+        const script = document.createElement('script');
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error('timeout'));
+        }, 4500);
+
+        function cleanup() {
+          clearTimeout(timeout);
+          delete window[cbName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+
+        window[cbName] = function(response) {
+          cleanup();
+          if (response && response.status === 'ok' && response.table) {
+            resolve(response.table);
+          } else {
+            reject(new Error('invalid_response'));
+          }
+        };
+
+        script.onerror = () => { cleanup(); reject(new Error('network_error')); };
+        script.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=responseHandler:${cbName}&sheet=${encodeURIComponent(sheetName)}`;
+        document.body.appendChild(script);
+      });
+    }
+
+    // 숫자 파싱 헬퍼
+    function parseNum(cell) {
+      if (!cell) return 0;
+      if (typeof cell.v === 'number') return cell.v;
+      if (cell.f || cell.v) {
+        const s = String(cell.v || cell.f).replace(/[^0-9.-]/g, '');
+        return parseFloat(s) || 0;
+      }
+      return 0;
+    }
+
+    // 실시간 시트 동기화 실행 (주가 + 별도계좌 + 신규 가계부 월 자동 탐색)
+    async function fetchLiveSheetsData() {
+      const icon = document.getElementById('syncIcon');
+      icon.classList.add('animate-spin');
+
+      try {
+        // 1. S&P500 매수원칙 탭에서 실시간 지수 및 TIGER S&P500 현재가 읽기
+        const spTable = await loadGoogleSheetTab(ASSET_SHEET_ID, 'S&P500 매수원칙');
+        if (spTable && spTable.rows) {
+          spTable.rows.forEach(r => {
+            const c = r.c || [];
+            const rowText = c.map(x => x ? (x.v || x.f || '') : '').join(' ');
+            if (rowText.includes('TIGER') && rowText.includes('802')) {
+              const liveP = parseNum(c[4]);
+              if (liveP > 10000) liveMarket.sp500EtfPrice = liveP;
+            }
+          });
+        }
+      } catch (e) {}
+
+      try {
+        // 2. 월간 투자현황 탭에서 SK하이닉스 실시간 현재가 읽기
+        const isaTable = await loadGoogleSheetTab(ASSET_SHEET_ID, '월간 투자현황');
+        if (isaTable && isaTable.rows) {
+          isaTable.rows.forEach(r => {
+            const c = r.c || [];
+            const rowText = c.map(x => x ? (x.v || x.f || '') : '').join(' ');
+            if (rowText.includes('하이닉스')) {
+              for (let i = 0; i < c.length; i++) {
+                const val = parseNum(c[i]);
+                if (val > 500000 && val < 5000000 && Math.abs(val - 1070372) > 100) {
+                  liveMarket.hynixPrice = val;
+                  break;
+                }
+              }
+            }
+          });
+        }
+      } catch (e) {}
+
+      try {
+        // 3. 별도계좌 탭에서 알파벳, 록히드마틴 현재가 및 환율 자동 읽기
+        const adminTable = await loadGoogleSheetTab(ASSET_SHEET_ID, '별도계좌');
+        if (adminTable && adminTable.rows) {
+          adminTable.rows.forEach(r => {
+            const c = r.c || [];
+            const rowText = c.map(x => x ? (x.v || x.f || '') : '').join(' ');
+            if (rowText.includes('알파벳')) {
+              for (let i = 0; i < c.length; i++) {
+                const v = parseNum(c[i]);
+                if (v > 100 && v < 1000 && Math.abs(v - 331.39) > 0.05) {
+                  liveMarket.googlPrice = v;
+                  break;
+                }
+              }
+            }
+            if (rowText.includes('록히드')) {
+              for (let i = 0; i < c.length; i++) {
+                const v = parseNum(c[i]);
+                if (v > 200 && v < 1500 && Math.abs(v - 526.61) > 0.05) {
+                  liveMarket.lmtPrice = v;
+                  break;
+                }
+              }
+            }
+            if (rowText.includes('환율') || rowText.includes('USD/KRW')) {
+              for (let i = 0; i < c.length; i++) {
+                const v = parseNum(c[i]);
+                if (v > 900 && v < 2000) {
+                  liveMarket.fxRate = v;
+                  break;
+                }
+              }
+            }
+          });
+        }
+      } catch (e) {}
+
+      // 4. 가계부 시트에서 11월, 12월 등 신규 월 탭이 생겼는지 자동 감지 후 불러오기
+      const futureMonths = ['11월', '12월', '27.1월', '1월'];
+      for (const mName of futureMonths) {
+        if (mName === '1월') continue; // 기존 26년 1월 제외
+        try {
+          const mTable = await loadGoogleSheetTab(LEDGER_SHEET_ID, mName);
+          if (mTable && mTable.rows && mTable.rows.length > 3) {
+            // 총 수입 / 총 지출 행 파싱
+            let inc = 0, exp = 0, fix = 0, vari = 0, inv = 0, bal = 0;
+            for (let rIdx = 0; rIdx < Math.min(10, mTable.rows.length); rIdx++) {
+              const row = mTable.rows[rIdx].c || [];
+              const nums = row.map(parseNum).filter(n => n !== 0);
+              if (nums.length >= 4 && nums[0] > 1000000) {
+                inc = nums[0]; exp = nums[1]; fix = nums[2]; vari = nums[3];
+                inv = nums[4] || 0; bal = nums[5] || (inc - exp - inv);
+                break;
+              }
+            }
+            if (inc > 0) {
+              LEDGER_DATA[mName] = {
+                period: `${mName} 가계부 (구글 시트 자동 연동)`,
+                income: inc, expense: exp, fixed: fix, variable: vari, invest: inv, balance: bal, dsr: '-',
+                incomes: [['총 수입 합계 (시트 연동)', inc]],
+                investments: [['저축/투자 합계', inv]],
+                fixedList: [['고정지출 합계', fix]],
+                variableList: [['변동지출 합계', vari, '100%']]
+              };
+              currentLedgerKey = mName; // 최신 월로 자동 전환!
+            }
+          }
+        } catch (e) {}
+      }
+
+      setTimeout(() => {
+        icon.classList.remove('animate-spin');
+        const now = new Date();
+        const t = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+        document.getElementById('syncStatusText').textContent =
+          `실시간 시세 & 구글 시트 자동 동기화 완료 (최근 갱신: ${t})`;
+        renderLedger();
+        recalcAll();
+      }, 350);
+    }
+
+    function toggleHistoryView() {
+      showAllHistory = !showAllHistory;
+      document.getElementById('historyToggleBtn').textContent =
+        showAllHistory ? '최근 6개월만 간추려 보기' : '전체 기간 보기 (25.06~)';
+      recalcAll();
+    }
+
+    // 전체 재계산 및 렌더링
+    function recalcAll() {
+      const hynixPrice = liveMarket.hynixPrice;
+      const sp500EtfPrice = liveMarket.sp500EtfPrice;
+      const sp500Index = liveMarket.sp500Index;
+      const sp500Ath = liveMarket.sp500Ath;
+
+      // 상단 시세 배지 업데이트
+      document.getElementById('badgeHynixPrice').textContent = krw(hynixPrice);
+      document.getElementById('badgeSp500EtfPrice').textContent = krw(sp500EtfPrice);
+      document.getElementById('badgeSp500Index').textContent = `${sp500Index.toLocaleString()} pt`;
+      document.getElementById('briefHynixPriceBadge').textContent = `현재가 ${krw(hynixPrice)}`;
+
+      // 부부 ISA 계산
+      const yohanQty = 25;
+      const yohanAvg = 1070372;
+      const yohanCash = 551;
+      const yohanIsaVal = (yohanQty * hynixPrice) + yohanCash;
+
+      const minjungHynixQty = 34;
+      const minjungHynixAvg = 1102820;
+      const minjungHynixVal = minjungHynixQty * hynixPrice;
+
+      const minjungSpQty = 802;
+      const minjungSpAvg = 25719;
+      const minjungSpVal = minjungSpQty * sp500EtfPrice;
+      const minjungCash = 106883;
+      const minjungIsaVal = minjungHynixVal + minjungSpVal + minjungCash;
+
+      const totalIsaVal = yohanIsaVal + minjungIsaVal;
+
+      // 26.10 기타 자산
+      const deposit = 3000000;
+      const bond = 2271029;
+      const usStock = 4481779;
+      const pension = 15013532;
+      const realEstate = 1500000000;
+
+      const cashFinancial = deposit + bond + usStock + totalIsaVal;
+      const totalAssets = cashFinancial + pension + realEstate;
+
+      const totalDebt = loansState.reduce((acc, l) => acc + (l.paidOff ? 0 : l.balance), 0);
+      const netWorth = totalAssets - totalDebt;
+
+      const prev = SHEET1_HISTORY[SHEET1_HISTORY.length - 1]; // 26.09
+      const cashDiff = cashFinancial - prev.cashTotal;
+      const cashDiffPct = (cashDiff / prev.cashTotal) * 100;
+      const nwDiff = netWorth - prev.netWorth;
+      const nwDiffPct = (nwDiff / prev.netWorth) * 100;
+
+      // KPI 카드 업데이트
+      document.getElementById('kpiCashAssets').textContent = krw(cashFinancial);
+      const kpiCashDiffEl = document.getElementById('kpiCashDiff');
+      kpiCashDiffEl.textContent = `전월대비 ${cashDiff >= 0 ? '+' : ''}${krw(cashDiff)} (${cashDiffPct.toFixed(2)}%)`;
+      kpiCashDiffEl.className = `text-xs font-semibold mt-2 ${cashDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+
+      document.getElementById('kpiNetWorth').textContent = krw(netWorth);
+      const kpiNwDiffEl = document.getElementById('kpiNetWorthDiff');
+      kpiNwDiffEl.textContent = `전월대비 ${nwDiff >= 0 ? '+' : ''}${krw(nwDiff)} (${nwDiffPct.toFixed(2)}%)`;
+      kpiNwDiffEl.className = `text-xs font-semibold mt-2 ${nwDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
+
+      document.getElementById('kpiTotalDebt').textContent = krw(totalDebt);
+      document.getElementById('kpiDebtRatio').textContent = `부채비율 ${((totalDebt / totalAssets) * 100).toFixed(1)}%`;
+
+      document.getElementById('kpiTotalAssets').textContent = krw(totalAssets);
+      const finRatio = (((cashFinancial + pension) / totalAssets) * 100).toFixed(1);
+      const reRatio = ((realEstate / totalAssets) * 100).toFixed(1);
+      document.getElementById('kpiAssetMix').textContent = `금융자산 ${finRatio}% | 부동산 ${reRatio}%`;
+
+      // 상단 마통 브리핑 카드 업데이트
+      const minusObj = loansState.find(l => l.id === 'minus');
+      const minusCleared = !minusObj || minusObj.paidOff || minusObj.balance === 0;
+      const minusCard = document.getElementById('minusBriefCard');
+      const minusBadge = document.getElementById('minusBriefBadge');
+      const minusTitle = document.getElementById('minusBriefTitle');
+      const minusDesc = document.getElementById('minusBriefDesc');
+
+      if (minusCleared) {
+        minusCard.className = 'p-4 rounded-2xl border bg-emerald-50/80 border-emerald-200 flex flex-col justify-between transition';
+        minusBadge.className = 'text-[11px] font-extrabold text-emerald-800 bg-emerald-200 px-2 py-0.5 rounded-full';
+        minusBadge.textContent = '상환 완료';
+        minusTitle.textContent = '마이너스 통장 전액 상환 완료! (잔액 ₩0)';
+        minusDesc.textContent = '마이너스 통장 상환이 완료되어 총부채 감소 및 순자산 증가에 실시간 반영되었습니다. 연 5.1% 이자 비용이 완전히 사라졌습니다.';
+      } else {
+        minusCard.className = 'p-4 rounded-2xl border bg-amber-50/70 border-amber-200 flex flex-col justify-between transition';
+        minusBadge.className = 'text-[11px] font-extrabold text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-full';
+        minusBadge.textContent = '상환 예정';
+        minusTitle.textContent = `현재 마이너스 통장 잔액 ${krw(minusObj.balance)}`;
+        minusDesc.textContent = '9월 하이닉스 10주 매도로 1,953만 원 축소 후, 10월 하이닉스 7주 추매(+860만)가 반영된 잔액입니다. 보증금 입금 시 상환 예정입니다.';
+      }
+
+      // 간추린 월별 자산·부채 요약표 렌더링 (핵심 7개 컬럼만 깔끔하게!)
+      const tbody1 = document.getElementById('historyTableBody');
+      const rowsToRender = showAllHistory ? SHEET1_HISTORY : SHEET1_HISTORY.slice(-5);
+
+      let html1 = rowsToRender.map((r) => {
+        const fullIdx = SHEET1_HISTORY.findIndex(item => item.month === r.month);
+        const prevRow = fullIdx > 0 ? SHEET1_HISTORY[fullIdx - 1] : null;
+        const diff = prevRow ? (r.netWorth - prevRow.netWorth) : 0;
+        const diffPct = prevRow ? ((diff / prevRow.netWorth) * 100) : 0;
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-4 text-left font-bold text-slate-700">${r.month}</td>
+            <td class="py-3 px-4 font-bold text-indigo-700">${krw(r.cashTotal)}</td>
+            <td class="py-3 px-4 text-slate-600">${krw(r.pension)}</td>
+            <td class="py-3 px-4 text-slate-700">${krw(r.realEstate)}</td>
+            <td class="py-3 px-4 font-semibold text-slate-900">${krw(r.totalAssets)}</td>
+            <td class="py-3 px-4 font-semibold text-rose-600">${krw(r.totalDebt)}</td>
+            <td class="py-3 px-4 font-extrabold text-slate-900 bg-slate-50/80">${krw(r.netWorth)}</td>
+            <td class="py-3 px-4 text-xs font-bold ${diff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+              ${prevRow ? `${diff >= 0 ? '+' : ''}${krw(diff)} (${diffPct.toFixed(1)}%)` : '-'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      html1 += `
+        <tr class="bg-blue-50/70 font-bold">
+          <td class="py-3.5 px-4 text-left text-blue-900 flex items-center gap-1.5">
+            26.10 <span class="text-[10px] px-1.5 py-0.5 bg-blue-600 text-white rounded">LIVE</span>
+          </td>
+          <td class="py-3.5 px-4 text-indigo-700">${krw(cashFinancial)}</td>
+          <td class="py-3.5 px-4 text-slate-700">${krw(pension)}</td>
+          <td class="py-3.5 px-4 text-slate-800">${krw(realEstate)}</td>
+          <td class="py-3.5 px-4 text-slate-900">${krw(totalAssets)}</td>
+          <td class="py-3.5 px-4 text-rose-600">${krw(totalDebt)}</td>
+          <td class="py-3.5 px-4 font-extrabold text-blue-900 bg-blue-100/60">${krw(netWorth)}</td>
+          <td class="py-3.5 px-4 text-xs font-extrabold ${nwDiff >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+            ${nwDiff >= 0 ? '+' : ''}${krw(nwDiff)} (${nwDiffPct.toFixed(2)}%)
+          </td>
+        </tr>
+      `;
+      tbody1.innerHTML = html1;
+
+      // 탭 2: 부부 ISA 렌더링
+      document.getElementById('isaPortfolioSub').textContent =
+        `부부 합산 실시간 평가액: ${krw(totalIsaVal)} (요한 ${krw(yohanIsaVal)} / 민정 ${krw(minjungIsaVal)})`;
+
+      const yohanProfit = (hynixPrice - yohanAvg) * yohanQty;
+      const yohanRate = ((hynixPrice - yohanAvg) / yohanAvg) * 100;
+      const minHynixProfit = (hynixPrice - minjungHynixAvg) * minjungHynixQty;
+      const minHynixRate = ((hynixPrice - minjungHynixAvg) / minjungHynixAvg) * 100;
+      const minSpProfit = (sp500EtfPrice - minjungSpAvg) * minjungSpQty;
+      const minSpRate = ((sp500EtfPrice - minjungSpAvg) / minjungSpAvg) * 100;
+
+      document.getElementById('isaHoldingsBody').innerHTML = `
+        <tr>
+          <td class="py-3 px-4 text-left font-bold text-slate-700">요한 ISA</td>
+          <td class="py-3 px-4 text-left font-semibold text-slate-900">SK하이닉스 (${yohanQty}주)</td>
+          <td class="py-3 px-4">${krw(yohanAvg)}</td>
+          <td class="py-3 px-4 font-bold text-blue-700">${krw(hynixPrice)}</td>
+          <td class="py-3 px-4 font-extrabold text-slate-900">${krw(yohanQty * hynixPrice)}</td>
+          <td class="py-3 px-4 font-semibold ${yohanProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${yohanProfit >= 0 ? '+' : ''}${krw(yohanProfit)}</td>
+          <td class="py-3 px-4 font-bold ${yohanRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${yohanRate >= 0 ? '+' : ''}${yohanRate.toFixed(1)}%</td>
+        </tr>
+        <tr>
+          <td class="py-3 px-4 text-left font-bold text-slate-700">민정 ISA</td>
+          <td class="py-3 px-4 text-left font-semibold text-slate-900">SK하이닉스 (${minjungHynixQty}주 · 10월 7주 추매포함)</td>
+          <td class="py-3 px-4">${krw(minjungHynixAvg)}</td>
+          <td class="py-3 px-4 font-bold text-blue-700">${krw(hynixPrice)}</td>
+          <td class="py-3 px-4 font-extrabold text-slate-900">${krw(minjungHynixVal)}</td>
+          <td class="py-3 px-4 font-semibold ${minHynixProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${minHynixProfit >= 0 ? '+' : ''}${krw(minHynixProfit)}</td>
+          <td class="py-3 px-4 font-bold ${minHynixRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${minHynixRate >= 0 ? '+' : ''}${minHynixRate.toFixed(1)}%</td>
+        </tr>
+        <tr>
+          <td class="py-3 px-4 text-left font-bold text-slate-700">민정 ISA</td>
+          <td class="py-3 px-4 text-left font-semibold text-slate-900">TIGER 미국S&P500 (${minjungSpQty}주)</td>
+          <td class="py-3 px-4">${krw(minjungSpAvg)}</td>
+          <td class="py-3 px-4 font-bold text-blue-700">${krw(sp500EtfPrice)}</td>
+          <td class="py-3 px-4 font-extrabold text-slate-900">${krw(minjungSpVal)}</td>
+          <td class="py-3 px-4 font-semibold ${minSpProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${minSpProfit >= 0 ? '+' : ''}${krw(minSpProfit)}</td>
+          <td class="py-3 px-4 font-bold ${minSpRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${minSpRate >= 0 ? '+' : ''}${minSpRate.toFixed(1)}%</td>
+        </tr>
+        <tr class="bg-slate-50">
+          <td class="py-2.5 px-4 text-left font-semibold text-slate-600" colspan="2">현금 (KRW 예수금 합산)</td>
+          <td class="py-2.5 px-4" colspan="2">-</td>
+          <td class="py-2.5 px-4 font-bold text-slate-800">${krw(yohanCash + minjungCash)}</td>
+          <td class="py-2.5 px-4" colspan="2">-</td>
+        </tr>
+      `;
+
+      // 시트 4: S&P 500 MDD 테이블 렌더링
+      const curMdd = ((sp500Index - sp500Ath) / sp500Ath) * 100;
+      document.getElementById('mddHeaderSub').textContent =
+        `전고점(ATH): ${sp500Ath.toLocaleString()} pt | 현재 지수: ${sp500Index.toLocaleString()} pt | 현재 하락률(MDD): ${curMdd.toFixed(2)}%`;
+      document.getElementById('briefSp500Badge').textContent =
+        `${sp500Index.toLocaleString()} pt (${curMdd.toFixed(2)}%)`;
+
+      const mddSteps = [
+        { step: '1단계', mdd: -10.0, amt: 5000000, guide: '현금 500만 원 투입' },
+        { step: '2단계', mdd: -15.0, amt: 15000000, guide: '마통 1,500만 원 1차 투입 (본격적 조정장 진입, 이자 부담 감안 분할 집행)' },
+        { step: '3단계', mdd: -20.0, amt: 15000000, guide: '마통 1,500만 원 2차 투입 (베어마켓 진입 구간, 200일선 아래 확인 후 집행)' },
+        { step: '4단계', mdd: -25.0, amt: 18000000, guide: '마통 1,800만 원 전액 투입' }
+      ];
+
+      document.getElementById('mddPlanBody').innerHTML = mddSteps.map(s => {
+        const target = sp500Ath * (1 + s.mdd / 100);
+        const reached = sp500Index <= target;
+        const gap = ((target - sp500Index) / sp500Index) * 100;
+        return `
+          <tr>
+            <td class="py-3 px-4 text-left font-bold text-slate-800">${s.step}</td>
+            <td class="py-3 px-4 font-bold text-rose-600">${s.mdd.toFixed(1)}%</td>
+            <td class="py-3 px-4 font-bold">${target.toFixed(2)}</td>
+            <td class="py-3 px-4">
+              ${reached
+                ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-extrabold">도달 (매수 집행)</span>'
+                : `<span class="text-xs text-slate-500">미도달 (${gap.toFixed(1)}%)</span>`}
+            </td>
+            <td class="py-3 px-4 font-extrabold text-slate-900">${krw(s.amt)}</td>
+            <td class="py-3 px-4 text-left text-xs text-slate-600">${s.guide}</td>
+          </tr>
+        `;
+      }).join('');
+
+      // 탭 5: 별도계좌 실시간 자동 계산 (알파벳, 록히드마틴, 환율 반영)
+      const fx = liveMarket.fxRate;
+      const googlUsdVal = adminPortfolio.googlQty * liveMarket.googlPrice;
+      const googlKrwVal = googlUsdVal * fx;
+      const googlCostKrw = adminPortfolio.googlQty * adminPortfolio.googlAvg * fx;
+      const googlProfitKrw = googlKrwVal - googlCostKrw;
+      const googlRate = ((liveMarket.googlPrice - adminPortfolio.googlAvg) / adminPortfolio.googlAvg) * 100;
+
+      const lmtUsdVal = adminPortfolio.lmtQty * liveMarket.lmtPrice;
+      const lmtKrwVal = lmtUsdVal * fx;
+      const lmtCostKrw = adminPortfolio.lmtQty * adminPortfolio.lmtAvg * fx;
+      const lmtProfitKrw = lmtKrwVal - lmtCostKrw;
+      const lmtRate = ((liveMarket.lmtPrice - adminPortfolio.lmtAvg) / adminPortfolio.lmtAvg) * 100;
+
+      const cashKrwVal = adminPortfolio.usdCash * fx;
+      const swingKrwVal = adminPortfolio.swingKrwFixed;
+      const adminTotalKrw = googlKrwVal + lmtKrwVal + cashKrwVal + swingKrwVal;
+      const adminProfitTotal = adminTotalKrw - adminPortfolio.principal;
+      const adminReturnPct = (adminProfitTotal / adminPortfolio.principal) * 100;
+
+      document.getElementById('badgeGooglPrice').textContent = usd(liveMarket.googlPrice);
+      document.getElementById('badgeLmtPrice').textContent = usd(liveMarket.lmtPrice);
+      document.getElementById('badgeFxRate').textContent = `₩${fx.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      document.getElementById('adminTotalVal').textContent = krw(adminTotalKrw);
+      const adminProfitEl = document.getElementById('adminProfit');
+      adminProfitEl.textContent = `${adminProfitTotal >= 0 ? '+' : ''}${krw(adminProfitTotal)} (${adminReturnPct >= 0 ? '+' : ''}${adminReturnPct.toFixed(1)}%)`;
+      adminProfitEl.className = `text-xl font-extrabold ${adminProfitTotal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      document.getElementById('adminCombinedNetWorth').textContent =
+        `별도계좌(${krw(adminTotalKrw)}) 포함 부부 실질 순자산: ${krw(netWorth + adminTotalKrw)}`;
+
+      document.getElementById('adminHoldingsBody').innerHTML = `
+        <tr>
+          <td class="py-3 px-4 text-left font-bold text-slate-900">알파벳 A (${adminPortfolio.googlQty}주)</td>
+          <td class="py-3 px-4">${usd(adminPortfolio.googlAvg)}</td>
+          <td class="py-3 px-4 font-bold text-blue-700">${usd(liveMarket.googlPrice)}</td>
+          <td class="py-3 px-4 font-semibold">${usd(googlUsdVal)}</td>
+          <td class="py-3 px-4 font-extrabold text-slate-900">${krw(googlKrwVal)}</td>
+          <td class="py-3 px-4 font-semibold ${googlProfitKrw >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+            ${googlProfitKrw >= 0 ? '+' : ''}${krw(googlProfitKrw)}
+          </td>
+          <td class="py-3 px-4 font-bold ${googlRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+            ${googlRate >= 0 ? '+' : ''}${googlRate.toFixed(1)}%
+          </td>
+        </tr>
+        <tr>
+          <td class="py-3 px-4 text-left font-bold text-slate-900">록히드 마틴 (${adminPortfolio.lmtQty}주)</td>
+          <td class="py-3 px-4">${usd(adminPortfolio.lmtAvg)}</td>
+          <td class="py-3 px-4 font-bold text-blue-700">${usd(liveMarket.lmtPrice)}</td>
+          <td class="py-3 px-4 font-semibold">${usd(lmtUsdVal)}</td>
+          <td class="py-3 px-4 font-extrabold text-slate-900">${krw(lmtKrwVal)}</td>
+          <td class="py-3 px-4 font-semibold ${lmtProfitKrw >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+            ${lmtProfitKrw >= 0 ? '+' : ''}${krw(lmtProfitKrw)}
+          </td>
+          <td class="py-3 px-4 font-bold ${lmtRate >= 0 ? 'text-emerald-600' : 'text-rose-600'}">
+            ${lmtRate >= 0 ? '+' : ''}${lmtRate.toFixed(1)}%
+          </td>
+        </tr>
+        <tr>
+          <td class="py-3 px-4 text-left font-bold text-slate-900">현금 (USD 예수금)</td>
+          <td class="py-3 px-4">-</td>
+          <td class="py-3 px-4">-</td>
+          <td class="py-3 px-4 font-semibold">${usd(adminPortfolio.usdCash)}</td>
+          <td class="py-3 px-4 font-bold text-slate-900">${krw(cashKrwVal)}</td>
+          <td class="py-3 px-4">-</td>
+          <td class="py-3 px-4">-</td>
+        </tr>
+        <tr>
+          <td class="py-3 px-4 text-left font-bold text-slate-900">스윙계좌 평가액</td>
+          <td class="py-3 px-4">-</td>
+          <td class="py-3 px-4">-</td>
+          <td class="py-3 px-4 font-semibold">${usd(adminPortfolio.swingUsd)}</td>
+          <td class="py-3 px-4 font-bold text-slate-900">${krw(swingKrwVal)}</td>
+          <td class="py-3 px-4">-</td>
+          <td class="py-3 px-4">-</td>
+        </tr>
+      `;
+
+      // 대출 탭 렌더링
+      document.getElementById('loanTabTotalDebt').textContent = krw(totalDebt);
+      renderLoans();
+    }
+
+    function renderIsaHistory() {
+      document.getElementById('isaHistoryBody').innerHTML = SHEET2_ISA.map(r => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-4 text-left font-bold text-slate-700">${r.month}</td>
+          <td class="py-2.5 px-4">${krw(r.input)}</td>
+          <td class="py-2.5 px-4">${krw(r.principal)}</td>
+          <td class="py-2.5 px-4 font-bold text-slate-900">${krw(r.val)}</td>
+          <td class="py-2.5 px-4 font-semibold text-emerald-600">${krw(r.profit)}</td>
+          <td class="py-2.5 px-4 font-bold text-blue-600">+${r.rate}%</td>
+          <td class="py-2.5 px-4 text-slate-500">${krw(r.sp500)}</td>
+          <td class="py-2.5 px-4">${krw(r.yohan)}</td>
+          <td class="py-2.5 px-4">${krw(r.minjung)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderLedger() {
+      const monthKeys = Object.keys(LEDGER_DATA);
+
+      // 상단 월 선택 버튼 동적 생성 (11월, 12월 등 추가 시 자동 생성)
+      const btnContainer = document.getElementById('ledgerMonthButtons');
+      btnContainer.innerHTML = monthKeys.map(m => {
+        const active = m === currentLedgerKey;
+        return `
+          <button onclick="selectLedgerMonth('${m}')"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
+              active ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }">
+            ${m}
+          </button>
+        `;
+      }).join('');
+
+      const summaryBody = document.getElementById('ledgerSummaryBody');
+      summaryBody.innerHTML = monthKeys.map(k => {
+        const d = LEDGER_DATA[k];
+        const active = k === currentLedgerKey;
+        return `
+          <tr onclick="selectLedgerMonth('${k}')" class="cursor-pointer transition ${active ? 'bg-blue-50/70 font-bold' : 'hover:bg-slate-50'}">
+            <td class="py-3 px-4 text-left font-extrabold text-slate-900">${d.period}</td>
+            <td class="py-3 px-4">${krw(d.income)}</td>
+            <td class="py-3 px-4 text-rose-600 font-bold">${krw(d.expense)}</td>
+            <td class="py-3 px-4">${krw(d.fixed)}</td>
+            <td class="py-3 px-4">${krw(d.variable)}</td>
+            <td class="py-3 px-4 text-blue-600 font-bold">${krw(d.invest)}</td>
+            <td class="py-3 px-4 font-extrabold ${d.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}">${krw(d.balance)}</td>
+            <td class="py-3 px-4 text-slate-600">${d.dsr}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const cur = LEDGER_DATA[currentLedgerKey];
+      document.getElementById('ledgerDetailGrid').innerHTML = `
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-4 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <span class="text-sm font-extrabold text-slate-900">${currentLedgerKey} 수입 내역</span>
+            <span class="text-sm font-extrabold text-blue-600">${krw(cur.income)}</span>
+          </div>
+          <div class="p-4 divide-y divide-slate-100 text-sm">
+            ${cur.incomes.map(i => `
+              <div class="py-2 flex justify-between">
+                <span class="text-slate-600">${i[0]}</span>
+                <span class="font-bold text-slate-900">${krw(i[1])}</span>
+              </div>
+            `).join('')}
+          </div>
+          <div class="px-4 py-3 bg-slate-50 border-y border-slate-200 flex justify-between items-center">
+            <span class="text-sm font-extrabold text-slate-900">${currentLedgerKey} 저축 / 투자</span>
+            <span class="text-sm font-extrabold text-emerald-600">${krw(cur.invest)}</span>
+          </div>
+          <div class="p-4 divide-y divide-slate-100 text-sm">
+            ${cur.investments.map(i => `
+              <div class="py-2 flex justify-between">
+                <span class="text-slate-600">${i[0]}</span>
+                <span class="font-bold text-slate-900">${krw(i[1])}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-4 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <span class="text-sm font-extrabold text-slate-900">${currentLedgerKey} 고정지출 내역</span>
+            <span class="text-sm font-extrabold text-rose-600">${krw(cur.fixed)}</span>
+          </div>
+          <div class="p-4 divide-y divide-slate-100 text-sm">
+            ${cur.fixedList.map(f => `
+              <div class="py-2 flex justify-between">
+                <span class="text-slate-600">${f[0]}</span>
+                <span class="font-bold text-slate-900">${krw(f[1])}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-4 py-3.5 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+            <span class="text-sm font-extrabold text-slate-900">${currentLedgerKey} 항목별 변동지출</span>
+            <span class="text-sm font-extrabold text-rose-600">${krw(cur.variable)}</span>
+          </div>
+          <div class="p-4 divide-y divide-slate-100 text-sm">
+            ${cur.variableList.map(v => `
+              <div class="py-2 flex justify-between items-center">
+                <div>
+                  <span class="text-slate-800 font-semibold">${v[0]}</span>
+                  <span class="ml-1.5 text-xs text-slate-400">${v[2]}</span>
+                </div>
+                <span class="font-bold text-slate-900">${krw(v[1])}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function selectLedgerMonth(m) {
+      currentLedgerKey = m;
+      renderLedger();
+    }
+
+    function renderLoans() {
+      const container = document.getElementById('loansGrid');
+      container.innerHTML = loansState.map((l, idx) => `
+        <div class="p-5 rounded-2xl border transition ${l.paidOff ? 'bg-emerald-50/50 border-emerald-200' : 'bg-white border-slate-200 shadow-sm'}">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">금리 ${l.rate}</span>
+              <h3 class="text-base font-extrabold text-slate-900 mt-2">${l.title}</h3>
+              <p class="text-xs text-slate-500 mt-0.5">${l.memo}</p>
+            </div>
+            <button onclick="toggleLoan(${idx})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition ${
+              l.paidOff ? 'bg-slate-200 text-slate-700 hover:bg-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'
+            }">
+              ${l.paidOff ? '상환 취소 (복원)' : '✓ 상환 완료 처리'}
+            </button>
+          </div>
+          <div class="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <div>
+              <span class="text-xs text-slate-500 block">대출 잔액</span>
+              ${l.paidOff
+                ? '<span class="text-xl font-extrabold text-emerald-700 mt-1 block">₩0 (상환 완료)</span>'
+                : `<span class="text-xl font-extrabold text-slate-900 mt-1 block">${krw(l.balance)}</span>`
+              }
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-500 block">월 상환액</span>
+              <span class="text-sm font-extrabold text-slate-800">${l.paidOff ? '₩0' : krw(l.monthly)}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleLoan(idx) {
+      loansState[idx].paidOff = !loansState[idx].paidOff;
+      recalcAll();
+    }
+
+    function switchTab(tabId) {
+      ['overview', 'isa', 'ledger', 'loans', 'admin'].forEach(id => {
+        document.getElementById('tab-' + id).classList.add('hidden');
+        const btn = document.getElementById('tabBtn-' + id);
+        if (btn) {
+          btn.className = 'tab-btn px-4 py-3 text-sm font-bold whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition' + (id === 'admin' && !isAdminUnlocked ? ' hidden' : '');
+        }
+      });
+      document.getElementById('tab-' + tabId).classList.remove('hidden');
+      const activeBtn = document.getElementById('tabBtn-' + tabId);
+      if (activeBtn) {
+        activeBtn.className = 'tab-btn px-4 py-3 text-sm font-extrabold whitespace-nowrap border-b-2 border-slate-900 text-slate-900 transition';
+      }
+    }
+
+    function openSheetModal() {
+      const m = document.getElementById('sheetModal');
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+    }
+    function closeSheetModal() {
+      const m = document.getElementById('sheetModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+
+    function handleLockClick() {
+      if (isAdminUnlocked) {
+        isAdminUnlocked = false;
+        document.getElementById('tabBtn-admin').classList.add('hidden');
+        document.getElementById('lockBtn').className = 'p-2 rounded-xl text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition';
+        switchTab('overview');
+      } else {
+        const m = document.getElementById('authModal');
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+        setTimeout(() => document.getElementById('authInput').focus(), 50);
+      }
+    }
+
+    function closeAuthModal() {
+      const m = document.getElementById('authModal');
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+      document.getElementById('authInput').value = '';
+    }
+
+    function submitAuth(e) {
+      e.preventDefault();
+      const val = document.getElementById('authInput').value;
+      if (val === '1007') {
+        isAdminUnlocked = true;
+        closeAuthModal();
+        const adminBtn = document.getElementById('tabBtn-admin');
+        adminBtn.classList.remove('hidden');
+        document.getElementById('lockBtn').className = 'p-2 rounded-xl bg-slate-900 text-white transition';
+        switchTab('admin');
+      } else {
+        document.getElementById('authInput').value = '';
+      }
+    }
+
+    // 초기 실행 및 60초마다 자동 구글 시트 동기화
+    renderIsaHistory();
+    renderLedger();
+    recalcAll();
+    fetchLiveSheetsData();
+    setInterval(fetchLiveSheetsData, 60000);
+  </script>
+</body>
+</html>
